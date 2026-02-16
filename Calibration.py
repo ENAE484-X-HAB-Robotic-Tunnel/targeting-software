@@ -19,7 +19,7 @@ objp *= square_size
 objpoints = []
 imgpoints = []
 
-images = glob.glob(r"C:\Users\maana\OneDrive\Desktop\ENAE484\Calibration Image Folder/calib_*.jpg")
+images = glob.glob(r"C:/Users/maana/OneDrive/Desktop/ENAE484/Calibration Image Folder/calib_*.jpg")
 print("Found images:", images)
 
 for fname in images:
@@ -35,7 +35,7 @@ for fname in images:
         imgpoints.append(corners)
 
         #Draw/display croners
-        cv2.drawChessboardCorners(img, chessboard_size, corners, ret)
+        cv2.drawChessboardCorners(img, chessboard_size, corners2, ret)
         cv2.imshow("Corners", img)
         cv2.waitKey(200)
 

@@ -1,6 +1,8 @@
 import cv2
 import numpy as np
 from pupil_apriltags import Detector
+import os
+
 
 # Camera Matrix
 K = np.array([
@@ -153,8 +155,18 @@ while True:
 
     cv2.imshow("AprilTag Targeting (6-DOF)", frame)
 
-    if cv2.waitKey(1) & 0xFF == 27:
+    key = cv2.waitKey(1)
+    if key & 0xFF == 27: # ESC
         break
-
+    if key == 32: # SPACE
+        roll_f,pitch_f,yaw_f,x_f,y_f,z_f=roll,pitch,yaw,x,y,z
+        print(f"Final Values |"
+              f" ID {det.tag_id} | "
+              f"x={x_f:.3f} y={y_f:.3f} z={z_f:.3f} | "
+            f"roll={roll_f:.1f} pitch={pitch_f:.1f} yaw={yaw_f:.1f}")
+        filename = f"Freeze_Frame.jpg"
+        cv2.imwrite(filename, frame)
+        print(f"Saved {filename}")
+        break
 cap.release()
 cv2.destroyAllWindows()
