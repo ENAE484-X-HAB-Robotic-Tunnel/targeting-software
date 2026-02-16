@@ -4,15 +4,15 @@ from pupil_apriltags import Detector
 
 # Camera Matrix
 K = np.array([
-    [851.75036318,   0.0, 638.14168942],
-    [0.0, 834.78742176, 332.91522582],
+    [598.37142736,   0.0, 313.64827666],
+    [0.0, 599.59958846, 237.87380463],
     [0.0,   0.0,   1.0]
 ], dtype=np.float64)
 
 # Distortion coefficients
-D = np.array([0.07909167, -0.33458485, -0.00840965,  0.00604151,  0.31921524])
+D = np.array([-7.75405759e-02, 4.69597542e-01, 6.68921205e-04,  -6.78959708e-04,  -9.65654022e-01])
 
-tagSize = 0.053  # april tag size (meters)
+tagSize = 0.05  # april tag size (meters)
 half = tagSize / 2.0
 
 # Tag corner coordinates in tag frame
