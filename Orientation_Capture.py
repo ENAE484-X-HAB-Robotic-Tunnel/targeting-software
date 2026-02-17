@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 from pupil_apriltags import Detector
 import os
-
+from ik_solver_fnc import Stewart_Solver
 
 # Camera Matrix
 K = np.array([
@@ -76,6 +76,11 @@ while True:
 
         # Rotation matrix
         R, _ = cv2.Rodrigues(rvec)
+        
+        R_map=np.array([[0,0,1],
+                        [1,0,0],
+                        [0,-1,0]])
+        R = R_map @ R
 
         # ---------------------------
         # Euler angles (ZYX convention)
@@ -160,13 +165,20 @@ while True:
         break
     if key == 32: # SPACE
         roll_f,pitch_f,yaw_f,x_f,y_f,z_f=roll,pitch,yaw,x,y,z
+
+        x_sol = z_f
+        y_sol =  x_f
+        z_sol = -y_f
         print(f"Final Values |"
               f" ID {det.tag_id} | "
-              f"x={x_f:.3f} y={y_f:.3f} z={z_f:.3f} | "
+              f"x={x_sol:.3f} y={y_sol:.3f} z={z_sol:.3f} | "
             f"roll={roll_f:.1f} pitch={pitch_f:.1f} yaw={yaw_f:.1f}")
         filename = f"Freeze_Frame.jpg"
         cv2.imwrite(filename, frame)
         print(f"Saved {filename}")
+
+        Stewart_Solver(target_pos=[100*x_sol,100*y_sol,100*z_sol],
+                       target_rpy=[roll_f,pitch_f,yaw_f])
         break
 cap.release()
 cv2.destroyAllWindows()
