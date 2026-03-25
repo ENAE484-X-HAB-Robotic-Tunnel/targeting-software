@@ -10,25 +10,14 @@ from pupil_apriltags import Detector
 def aprilTagTargetting():
     # Camera Matrix
     K = np.array([
-        [799,    0.0,         623],
-        [0.0,    800,         361],
+        [579.22798778,    0.0,         308.93921177],
+        [0.0,    581.28267983,         234.87942809],
         [0.0,    0.0,         1.0]
     ], dtype=np.float64)
 
     # Distortion coefficients
     D = np.array([
-        [0.07821895, -0.19809823, -0.00188907, 0.00293607, 0.2082274]
-    ], dtype=np.float64)
-
-    tagSize = 0.05  # april tag size (meters)
-    half = tagSize / 2.0
-
-    # Tag corner coordinates in tag frame
-    object_points = np.array([
-        [-half,  half, 0.0],
-        [ half,  half, 0.0],
-        [ half, -half, 0.0],
-        [-half, -half, 0.0]
+        [-0.03920679, 0.24817876, 0.00089033, -0.00258005, -0.53929358]
     ], dtype=np.float64)
 
     detector = Detector(
@@ -38,6 +27,7 @@ def aprilTagTargetting():
         quad_sigma=0.0,
         refine_edges=1
     )
+    tagSize = 0.05
 
     # Video capture
     cap = cv2.VideoCapture(0)
@@ -46,50 +36,43 @@ def aprilTagTargetting():
 
     print("AprilTag targeting running. Press Space to capture.")
 
+
     while True:
         ret, frame = cap.read()
         if not ret:
             break
 
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        detections = detector.detect(gray)
-
+        detections = detector.detect(
+    gray,
+    estimate_tag_pose=True,
+    camera_params=(K[0,0], K[1,1], K[0,2], K[1,2]),
+    tag_size=tagSize
+)
+        x = y = z = roll = pitch = yaw = None
         for det in detections:
             image_points = det.corners.astype(np.float64)
 
-            # ---------------------------
-            # Solve PnP (6-DOF pose)
-            # ---------------------------
-            success, rvec, tvec = cv2.solvePnP(
-                object_points,
-                image_points,
-                K,
-                D,
-                # flags=cv2.SOLVEPNP_ITERATIVE
-                flags=cv2.SOLVEPNP_IPPE_SQUARE
-
-            )
-
-            if not success:
-                continue
+            #R_cam and tvec are obtained directly
+            R_cam = det.pose_R
+            tvec = det.pose_t
 
             # Translation (meters, camera frame)
             x_cam, y_cam, z_cam = tvec.flatten()
-
-            # Translate to SP frame
+            x = x_cam; y = y_cam; z = z_cam
+            # Translate to SP frame 
             x = z_cam; y = -x_cam; z = -y_cam
 
             # Rotation matrix
-            R_cam, _ = cv2.Rodrigues(rvec)
             T = np.array([
                 [0, 0, 1],
                 [-1, 0, 0],
                 [0, -1, 0]
             ])
-
+            
             # Translate to SP frame
             R_SP = T @ R_cam @ T.T
-
+            
             # ---------------------------
             # Euler angles (ZYX convention)
             # ---------------------------
@@ -106,14 +89,8 @@ def aprilTagTargetting():
                 yaw   = 0.0
 
 
-            # tag_normal = R_SP[:, 2]
-            # # project onto XY plane
-            # proj = np.array([tag_normal[0], tag_normal[1]])
-            # yaw = np.arctan2(proj[1], proj[0])
-
-
             roll, pitch, yaw = np.degrees([roll, pitch, yaw])
-
+            
             # Draw tag outline
             corners = image_points.astype(int)
             for i in range(4):
@@ -132,7 +109,7 @@ def aprilTagTargetting():
                 [0, axis_len, 0],  # Y
                 [0, 0, axis_len]   # Z
             ])
-
+            rvec, _ = cv2.Rodrigues(R_SP)
             imgpts, _ = cv2.projectPoints(
                 axes_3d, rvec, tvec, K, D
             )
