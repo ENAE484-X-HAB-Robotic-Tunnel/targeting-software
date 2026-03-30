@@ -1,13 +1,10 @@
 import cv2
 import numpy as np
-import matplotlib.pyplot as plt
-import ik_visualization
-import os
 from pupil_apriltags import Detector
 
-
-
-def aprilTagTargetting():
+def CameraReadings():
+    #Inputs: None
+    #Outputs: AprilTag measurements of IDs 0,1,2
     # Camera Matrix
     K = np.array([
         [579.22798778,    0.0,         308.93921177],
@@ -36,7 +33,10 @@ def aprilTagTargetting():
 
     print("AprilTag targeting running. Press Space to capture.")
 
-
+    # Initialize dictionary
+    # Key: Tag ID
+    # Value: [x,y,z,r,p,y]
+    tag_measurements = {} 
     while True:
         ret, frame = cap.read()
         if not ret:
@@ -51,6 +51,9 @@ def aprilTagTargetting():
 )
         x = y = z = roll = pitch = yaw = None
         for det in detections:
+            tag_id = det.tag_id
+            if tag_id not in [0,1,2]:
+                continue
             image_points = det.corners.astype(np.float64)
 
             #R_cam and tvec are obtained directly
@@ -109,7 +112,7 @@ def aprilTagTargetting():
                 [0, axis_len, 0],  # Y
                 [0, 0, axis_len]   # Z
             ])
-            rvec, _ = cv2.Rodrigues(R_cam)
+            rvec, _ = cv2.Rodrigues(R_SP)
             imgpts, _ = cv2.projectPoints(
                 axes_3d, rvec, tvec, K, D
             )
@@ -145,78 +148,60 @@ def aprilTagTargetting():
             break
 
     cap.release()
-    # script_dir = os.path.dirname(os.path.abspath(__file__))
-    # filename = os.path.join(script_dir, "TargetAprilImage.jpg")
-    # cv2.imwrite(filename, frame)
     cv2.destroyAllWindows()
-    targetState = np.array([x, y, z, roll, pitch, yaw])
-    return targetState
 
-def plotSP(x, y, z, roll, pitch, yaw):
-    base_r = 5; platform_r = 5
-    platform = ik_visualization.StewartPlatform33(base_r, platform_r) # give base and platform radius
-    ik_visualization.platform = platform
+    # Results/Storage
+    results = []
+    for tag_id in [0,1,2]:
+        if tag_id in tag_measurements:
+            results.append(tag_measurements[tag_id])
+        else:
+            results.append(np.full(6,np.nan))
+    return np.array(results)
 
-    # x y z, r p y in deg
-    base_pos = [0, 0, 0]
-    base_rpy = [0, 90, 0]
-
-    target_pos = [x, y, z] # extension, translation in yz plane
-    target_rpy = [roll, pitch + 90, yaw] # deg
-    ik_visualization.target_pos = target_pos
-    ik_visualization.target_rpy = target_rpy
-
-    lengths, lines, base_pts, plat_pts = platform.solve_leg_lengths(base_pos, base_rpy, target_pos, target_rpy)
-
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-    ik_visualization.ax = ax
-
-    # plot legs
-    # manage connectivity, start and end position of each line in x, y, and z
-    for name, (start, end) in lines.items():
-        ax.plot(
-            [start[0], end[0]], # x
-            [start[1], end[1]], # y
-            [start[2], end[2]], # z
-            color='blue', linewidth=2
-        )
-
-    # plot triangle connecting legs on each platform
-    platform.plot_triangle(base_pts, ['A', 'B', 'C'], 'black', 'Base')
-    platform.plot_triangle(plat_pts, ['D', 'E', 'F'], 'magenta', 'Platform')
-
-    # plot platforms
-    platform.plot_circle(base_pos, platform.r_base, base_rpy, 'black')
-    platform.plot_circle(target_pos, platform.r_plat, target_rpy, 'magenta')
-
-    # plot the Normal Vector
-    platform.plot_normal(ax, target_rpy)
-
+def CenterHatch(tagMeas):
+    # Inputs: xyzrpy readings from all 3 tags from 1 camera
+    # Outputs: Estimated center xyzrpy assuming the 3 tags form a circle
     
-    # plot cylinder to visualize tunnel
-    vis_r = base_r * 0.8
-    platform.plot_cylinder(ax, platform, base_pos, base_rpy, target_pos, target_rpy, vis_r)
+    # Unpacking data (Only need x, y, z)
+    tag1, tag2, tag3 = tagMeas
+    p1 = tag1[:3]
+    p2 = tag2[:3]
+    p3 = tag3[:3]
+    # Calculating normal
+    v1 = p2 - p1
+    v2 = p3 - p1
+    n = np.cross(v1,v2)
 
-    
-    ax.legend()
-    ax.set_xlabel('x')
-    ax.set_ylabel('y')
-    ax.set_zlabel('z')
-    plt.axis('equal')
-    plt.show()
+    # Perpendicular Bisectors
+    n1 = np.cross(n,v1)
+    n2 = np.cross(n,v2)
 
+    # Midpoints
+    m1 = (p1+p2) / 2
+    m2 = (p1+p3) / 2
+
+    # Center
+    # m1 + alpha*N1 = m2 + beta*N2
+
+    a = np.column_stack((n1,-n2))
+    b = m2 - m1
+
+    x,_,_,_ = np.linalg.lstsq(a,b,rcond=None)
+
+    center = m1 + x[0]*n1
+
+    return center
 
 if __name__ == "__main__":
-    pose = aprilTagTargetting()
-    multiplier = 10
-    
-    if pose is not None:
-        x, y, z, roll, pitch, yaw = pose
-        x, y, z = x*multiplier, y*multiplier, z*multiplier
-        print("\nCaptured Pose:")
-        print(f"x={x:.3f} y={y:.3f} z={z:.3f}")
-        print(f"roll={roll:.2f} pitch={pitch:.2f} yaw={yaw:.2f}")
-        plotSP(x, y, z, roll, pitch, yaw)
-    else:
-        print("No pose captured.")
+    # # AprilTag Measurements
+    # tagMeas = CameraReadings()
+
+    # Test Tag Values
+    tag1 = np.array([-10,10,10,0,0,0])
+    tag2 = np.array([10,10,10,0,0,0])
+    tag3 = np.array([0,np.sqrt(200),10,0,0,0])
+    tagMeas = np.stack((tag1, tag2, tag3))
+    center = CenterHatch(tagMeas) # Array Shape (3, 6)
+    print(center)
+
