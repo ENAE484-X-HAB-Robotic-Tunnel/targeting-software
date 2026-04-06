@@ -19,7 +19,7 @@ objp *= square_size
 objpoints = []
 imgpoints = []
 
-images = glob.glob(r"C:/Users/maana/OneDrive/Desktop/ENAE484/Calibration Image Folder/calib_*.jpg")
+images = glob.glob("./Calibration Images/calib_*.jpg")
 print("Found images:", images)
 
 for fname in images:
@@ -31,17 +31,17 @@ for fname in images:
     if ret:
         objpoints.append(objp)
         corners2 = cv2.cornerSubPix(gray,corners, (11,11), (-1,-1), criteria)
-
         imgpoints.append(corners)
 
-        #Draw/display croners
         cv2.drawChessboardCorners(img, chessboard_size, corners2, ret)
         cv2.imshow("Corners", img)
         cv2.waitKey(200)
 
 cv2.destroyAllWindows()
 
-ret, camera_matrix, dist_coeffs, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, gray.shape[::-1], None, None)
+ret, camera_matrix, dist_coeffs, rvecs, tvecs = cv2.calibrateCamera(
+    objpoints, imgpoints, gray.shape[::-1], None, None
+)
 
 #Reprojection Error
 mean_error = 0
@@ -50,7 +50,7 @@ for i in range(len(objpoints)):
     error = cv2.norm(imgpoints[i], imgpoints2, cv2.NORM_L2)/len(imgpoints2)
     mean_error += error
  
-print( "total error: {}".format(mean_error/len(objpoints)) )
+print( "Total Error: {}".format(mean_error/len(objpoints)) )
 
 print("\nCamera Matrix:")
 print(camera_matrix)
